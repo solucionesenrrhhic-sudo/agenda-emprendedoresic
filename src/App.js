@@ -81,8 +81,11 @@ function Btn({ children, onClick, color=C.primary, full, small, ghost, disabled 
 // ══════════════════════════════════════════
 // PANTALLA DE LOGIN
 // ══════════════════════════════════════════
-function LoginScreen({ onLogin }) {
-  const [modo, setModo] = useState("login"); // login | registro
+const CODIGO_ACCESO = "EMPRENDIC2026";
+
+function LoginScreen() {
+  const [paso, setPaso] = useState("inicio");
+  const [codigo, setCodigo] = useState("");
   const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
   const [nombre, setNombre] = useState("");
@@ -91,12 +94,12 @@ function LoginScreen({ onLogin }) {
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
 
-  const handleLogin = async () => {
-    if(!email||!pass) { setError("Completá email y contraseña"); return; }
-    setLoading(true); setError("");
-    const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
-    if(error) setError("Email o contraseña incorrectos");
-    setLoading(false);
+  const verificarCodigo = () => {
+    if(codigo.trim().toUpperCase() === CODIGO_ACCESO) {
+      setPaso("registro"); setError("");
+    } else {
+      setError("Código incorrecto. Contactá a Cintia para obtenerlo.");
+    }
   };
 
   const handleRegistro = async () => {
@@ -107,8 +110,21 @@ function LoginScreen({ onLogin }) {
       email, password: pass,
       options: { data: { nombre, negocio } }
     });
-    if(error) setError(error.message);
-    else setMsg("¡Cuenta creada! Revisá tu email para confirmar.");
+    if(error) {
+      if(error.message.includes("already")) setError("Este email ya tiene cuenta. Ingresá con tu contraseña.");
+      else setError("Error al crear la cuenta. Intentá de nuevo.");
+    } else {
+      setMsg("¡Cuenta creada! Ya podés ingresar.");
+      setPaso("login");
+    }
+    setLoading(false);
+  };
+
+  const handleLogin = async () => {
+    if(!email||!pass) { setError("Completá email y contraseña"); return; }
+    setLoading(true); setError("");
+    const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
+    if(error) setError("Email o contraseña incorrectos");
     setLoading(false);
   };
 
@@ -116,48 +132,84 @@ function LoginScreen({ onLogin }) {
     <div style={{ minHeight:"100vh", background:`linear-gradient(160deg, ${C.primaryDark} 0%, ${C.primary} 60%, ${C.primaryLight} 100%)`, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}>
       <div style={{ background:"#fff", borderRadius:24, padding:32, width:"100%", maxWidth:380, boxShadow:"0 20px 60px rgba(0,0,0,0.2)" }}>
 
-        {/* Logo */}
-        <div style={{ textAlign:"center", marginBottom:28 }}>
+        <div style={{ textAlign:"center", marginBottom:24 }}>
           <div style={{ fontSize:36 }}>💼</div>
           <div style={{ fontSize:10, color:C.textLight, fontWeight:700, letterSpacing:2, textTransform:"uppercase" }}>Agenda</div>
           <div style={{ fontSize:22, fontWeight:800, color:C.primary }}>EmprendedoresIC</div>
           <div style={{ fontSize:11, color:C.textLight, marginTop:2 }}>CI · Soluciones.IC</div>
         </div>
 
-        {/* Tabs */}
-        <div style={{ display:"flex", background:C.warm2, borderRadius:14, padding:4, marginBottom:22 }}>
-          {["login","registro"].map(m=>(
-            <button key={m} onClick={()=>{ setModo(m); setError(""); setMsg(""); }}
-              style={{ flex:1, background:modo===m?C.primary:"transparent", color:modo===m?"#fff":C.textLight, border:"none", borderRadius:10, padding:"8px", fontWeight:700, fontSize:13, cursor:"pointer" }}>
-              {m==="login"?"Ingresar":"Registrarse"}
-            </button>
-          ))}
-        </div>
-
         {msg && <div style={{ background:C.successBg, border:`1px solid ${C.success}`, borderRadius:10, padding:"10px 14px", fontSize:13, color:C.success, fontWeight:600, marginBottom:14 }}>{msg}</div>}
         {error && <div style={{ background:C.dangerBg, border:`1px solid ${C.danger}`, borderRadius:10, padding:"10px 14px", fontSize:13, color:C.danger, fontWeight:600, marginBottom:14 }}>{error}</div>}
 
-        {modo==="registro" && (
+        {/* INICIO */}
+        {paso==="inicio" && (
           <>
-            <InputF label="👤 Tu nombre" value={nombre} onChange={setNombre} placeholder="Ej: María García" />
-            <InputF label="🏪 Nombre de tu negocio" value={negocio} onChange={setNegocio} placeholder="Ej: Taller Creativo" />
+            <div style={{ display:"flex", gap:8, marginBottom:20 }}>
+              <button onClick={()=>{ setPaso("codigo"); setError(""); }}
+                style={{ flex:1, background:C.warm2, color:C.text, border:"none", borderRadius:12, padding:"12px", fontWeight:700, fontSize:13, cursor:"pointer" }}>
+                🆕 Primera vez
+              </button>
+              <button onClick={()=>{ setPaso("login"); setError(""); }}
+                style={{ flex:1, background:C.primary, color:"#fff", border:"none", borderRadius:12, padding:"12px", fontWeight:700, fontSize:13, cursor:"pointer" }}>
+                🔑 Ya tengo cuenta
+              </button>
+            </div>
+            <div style={{ background:C.warm1, borderRadius:14, padding:"16px", textAlign:"center" }}>
+              <div style={{ fontSize:12, color:C.textLight, fontWeight:600, marginBottom:8 }}>¿Todavía no tenés tu agenda?</div>
+              <div style={{ fontSize:13, fontWeight:800, color:C.text, marginBottom:6 }}>Contactá a Cintia 🧡</div>
+              <div style={{ fontSize:12, color:C.primary, fontWeight:700, marginBottom:4 }}>📱 341 247 7797</div>
+              <div style={{ fontSize:12, color:C.primary, fontWeight:700 }}>📲 @soluciones.ic</div>
+            </div>
           </>
         )}
 
-        <InputF label="📧 Email" type="email" value={email} onChange={setEmail} placeholder="tu@email.com" />
-        <InputF label="🔑 Contraseña" type="password" value={pass} onChange={setPass} placeholder={modo==="registro"?"Mínimo 6 caracteres":"Tu contraseña"} />
+        {/* CÓDIGO DE ACCESO */}
+        {paso==="codigo" && (
+          <>
+            <div style={{ background:C.warningBg, borderRadius:12, padding:"10px 14px", marginBottom:16, fontSize:12, color:C.warning, fontWeight:600 }}>
+              🔑 Ingresá el código que te dio Cintia
+            </div>
+            <InputF label="Código de acceso" value={codigo} onChange={setCodigo} placeholder="Ej: EMPRENDIC2026" />
+            <Btn onClick={verificarCodigo} color={C.primary} full>Verificar →</Btn>
+            <div style={{ textAlign:"center", marginTop:12 }}>
+              <span onClick={()=>{ setPaso("inicio"); setError(""); }} style={{ fontSize:12, color:C.primary, fontWeight:700, cursor:"pointer" }}>← Volver</span>
+            </div>
+          </>
+        )}
 
-        <Btn onClick={modo==="login"?handleLogin:handleRegistro} color={C.primary} full disabled={loading}>
-          {loading?"Procesando...":modo==="login"?"Ingresar →":"Crear cuenta →"}
-        </Btn>
+        {/* REGISTRO */}
+        {paso==="registro" && (
+          <>
+            <div style={{ background:C.successBg, borderRadius:12, padding:"10px 14px", marginBottom:14, fontSize:12, color:C.success, fontWeight:600 }}>
+              ✅ Código correcto. Completá tus datos.
+            </div>
+            <InputF label="👤 Tu nombre *" value={nombre} onChange={setNombre} placeholder="Ej: María García" />
+            <InputF label="🏪 Nombre de tu negocio" value={negocio} onChange={setNegocio} placeholder="Ej: Taller Creativo" />
+            <InputF label="📧 Email *" type="email" value={email} onChange={setEmail} placeholder="tu@email.com" />
+            <InputF label="🔑 Contraseña *" type="password" value={pass} onChange={setPass} placeholder="Mínimo 6 caracteres" />
+            <Btn onClick={handleRegistro} color={C.primary} full disabled={loading}>
+              {loading?"Creando cuenta...":"Crear mi agenda 🎉"}
+            </Btn>
+            <div style={{ textAlign:"center", marginTop:12 }}>
+              <span onClick={()=>{ setPaso("inicio"); setError(""); }} style={{ fontSize:12, color:C.primary, fontWeight:700, cursor:"pointer" }}>← Volver</span>
+            </div>
+          </>
+        )}
 
-        <div style={{ textAlign:"center", marginTop:16, fontSize:11, color:C.textLight }}>
-          {modo==="login"?"¿No tenés cuenta? ":"¿Ya tenés cuenta? "}
-          <span onClick={()=>{ setModo(modo==="login"?"registro":"login"); setError(""); setMsg(""); }}
-            style={{ color:C.primary, fontWeight:700, cursor:"pointer" }}>
-            {modo==="login"?"Registrate acá":"Ingresá acá"}
-          </span>
-        </div>
+        {/* LOGIN */}
+        {paso==="login" && (
+          <>
+            <InputF label="📧 Email" type="email" value={email} onChange={setEmail} placeholder="tu@email.com" />
+            <InputF label="🔑 Contraseña" type="password" value={pass} onChange={setPass} placeholder="Tu contraseña" />
+            <Btn onClick={handleLogin} color={C.primary} full disabled={loading}>
+              {loading?"Ingresando...":"Ingresar →"}
+            </Btn>
+            <div style={{ textAlign:"center", marginTop:12 }}>
+              <span onClick={()=>{ setPaso("inicio"); setError(""); }} style={{ fontSize:12, color:C.primary, fontWeight:700, cursor:"pointer" }}>← Volver</span>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
